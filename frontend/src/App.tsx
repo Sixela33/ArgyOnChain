@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button"
+import '@rainbow-me/rainbowkit/styles.css';
+
 
 export function App() {
   return (
