@@ -66,7 +66,8 @@ contract IdentityFactory is AccessControl {
             revert IdentityNotFound();
         }
 
+        address identity = walletToIdentity[_wallet];
         delete walletToIdentity[_wallet];
-        emit WalletUnlinked(_wallet, getIdentity(_wallet));
+        emit WalletUnlinked(_wallet, identity);
     }
 }
