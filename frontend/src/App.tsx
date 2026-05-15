@@ -1,23 +1,22 @@
-import { Button } from "@/components/ui/button"
-import '@rainbow-me/rainbowkit/styles.css';
+import '@rainbow-me/rainbowkit/styles.css'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { NavBar } from '@/components/NavBar'
+import { IssuerPage } from '@/pages/IssuerPage'
+import { InvestorPage } from '@/pages/InvestorPage'
 
-
-export function App() {
+export default function App() {
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
+    <BrowserRouter>
+      <div className="min-h-svh bg-background text-foreground">
+        <NavBar />
+        <main className="container mx-auto px-6 py-8 max-w-6xl">
+          <Routes>
+            <Route path="/investor" element={<InvestorPage />} />
+            <Route path="/issuer" element={<IssuerPage />} />
+            <Route path="*" element={<Navigate to="/investor" replace />} />
+          </Routes>
+        </main>
       </div>
-    </div>
+    </BrowserRouter>
   )
 }
-
-export default App
