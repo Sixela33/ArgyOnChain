@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAccount, useWriteContract, usePublicClient, useReadContract } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
-import { parseUnits, formatUnits, parseAbiItem } from 'viem'
+import { formatUnits, parseAbiItem } from 'viem'
+import { ArrowRight } from 'lucide-react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Button } from '@/components/ui/button'
 import { TOKEN_FACTORY_ADDRESS, TokenFactoryABI, TokenABI, FROM_BLOCK } from '@/lib/contracts'
@@ -37,98 +39,34 @@ function useIssuedTokens(issuer: `0x${string}` | undefined) {
   })
 }
 
-function IssuerTokenCard({ token, issuer }: { token: TokenInfo; issuer: `0x${string}` }) {
-  const [mintTo, setMintTo] = useState('')
-  const [mintAmount, setMintAmount] = useState('')
-  const { writeContractAsync } = useWriteContract()
-
-  const { data: totalSupply, refetch: refetchSupply } = useReadContract({
-    address: token.address,
-    abi: TokenABI,
-    functionName: 'totalSupply',
-  })
-
-  const { data: isPaused, refetch: refetchPaused } = useReadContract({
-    address: token.address,
-    abi: TokenABI,
-    functionName: 'paused',
-  })
-
-  const handleMint = async () => {
-    if (!mintTo || !mintAmount) return
-    await writeContractAsync({
-      address: token.address,
-      abi: TokenABI,
-      functionName: 'mint',
-      args: [mintTo as `0x${string}`, parseUnits(mintAmount, 18)],
-    })
-    setMintTo('')
-    setMintAmount('')
-    refetchSupply()
-  }
-
-  const handlePauseToggle = async () => {
-    await writeContractAsync({
-      address: token.address,
-      abi: TokenABI,
-      functionName: isPaused ? 'unpause' : 'pause',
-      args: [],
-    })
-    refetchPaused()
-  }
+function IssuerTokenCard({ token }: { token: TokenInfo }) {
+  const { data: totalSupply } = useReadContract({ address: token.address, abi: TokenABI, functionName: 'totalSupply' })
+  const { data: isPaused } = useReadContract({ address: token.address, abi: TokenABI, functionName: 'paused' })
 
   return (
-    <div className="border rounded-lg p-5 flex flex-col gap-4">
+    <div className="border rounded-lg p-5 flex flex-col gap-3">
       <div className="flex items-start justify-between">
         <div>
           <p className="font-semibold text-base">{token.name}</p>
           <p className="text-sm text-muted-foreground font-mono">{token.symbol}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              isPaused ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-600'
-            }`}
-          >
-            {isPaused ? 'Paused' : 'Active'}
-          </span>
-          <Button size="sm" variant="outline" onClick={handlePauseToggle}>
-            {isPaused ? 'Unpause' : 'Pause'}
-          </Button>
-        </div>
-      </div>
-
-      <div className="text-sm text-muted-foreground">
-        Total supply:{' '}
-        <span className="text-foreground font-medium">
-          {totalSupply !== undefined ? formatUnits(totalSupply as bigint, 18) : '—'} {token.symbol}
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isPaused ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-600'}`}>
+          {isPaused ? 'Paused' : 'Active'}
         </span>
       </div>
 
-      <div className="border-t pt-4 flex flex-col gap-2">
-        <p className="text-sm font-medium">Mint tokens</p>
-        <input
-          className="w-full border rounded-md px-3 py-1.5 text-sm bg-background"
-          placeholder="Recipient address (0x...)"
-          value={mintTo}
-          onChange={(e) => setMintTo(e.target.value)}
-        />
-        <div className="flex gap-2">
-          <input
-            className="flex-1 border rounded-md px-3 py-1.5 text-sm bg-background"
-            placeholder="Amount"
-            type="number"
-            min="0"
-            value={mintAmount}
-            onChange={(e) => setMintAmount(e.target.value)}
-          />
-          <Button size="sm" onClick={handleMint} disabled={!mintTo || !mintAmount}>
-            Mint
-          </Button>
-        </div>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Total supply:{' '}
+        <span className="text-foreground font-medium">
+          {totalSupply !== undefined ? Number(formatUnits(totalSupply as bigint, 18)).toLocaleString() : '—'} {token.symbol}
+        </span>
+      </p>
 
       <p className="text-xs text-muted-foreground font-mono break-all">{token.address}</p>
+
+      <Link to={`/token/${token.address}`} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline mt-1">
+        Manage <ArrowRight size={14} />
+      </Link>
     </div>
   )
 }
@@ -184,17 +122,8 @@ function DeployTokenForm({ onDeployed }: { onDeployed: () => void }) {
 }
 
 export function IssuerPage() {
-  const { address, isConnected } = useAccount()
+  const { address } = useAccount()
   const { data: tokens = [], refetch } = useIssuedTokens(address)
-
-  if (!isConnected) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
-        <p className="text-muted-foreground">Connect your wallet to access the Issuer Panel</p>
-        <ConnectButton />
-      </div>
-    )
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -212,7 +141,7 @@ export function IssuerPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {tokens.map((token) => (
-              <IssuerTokenCard key={token.address} token={token} issuer={address!} />
+              <IssuerTokenCard key={token.address} token={token} />
             ))}
           </div>
         )}

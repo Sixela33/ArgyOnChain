@@ -1,9 +1,9 @@
 import { useAccount, useWriteContract, usePublicClient, useReadContract } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
 import { formatUnits, parseUnits, parseAbiItem } from 'viem'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Button } from '@/components/ui/button'
 import { TOKEN_FACTORY_ADDRESS, USDC_ADDRESS, TokenFactoryABI, TokenABI, USDCABI, FROM_BLOCK } from '@/lib/contracts'
+import CustomConnectButton from '@/components/CustomConnectButton'
 
 const TOKEN_CREATED_EVENT = parseAbiItem(
   'event TokenCreated(address indexed token, address indexed defaultAdmin, string name, string symbol, uint256[] requiredClaims, uint256 initialSupply)',
@@ -143,7 +143,7 @@ export function InvestorPage() {
         {isConnected && address ? (
           <USDCWidget investor={address} />
         ) : (
-          <ConnectButton />
+          <CustomConnectButton />
         )}
       </div>
 

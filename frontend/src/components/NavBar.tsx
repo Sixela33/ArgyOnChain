@@ -1,47 +1,14 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Menu, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import CustomConnectButton from './CustomConnectButton'
 
 const navLinks = [
   { to: '/investor', label: 'Marketplace' },
   { to: '/issuer', label: 'Issuer Panel' },
+  { to: '/admin', label: 'Admin' },
 ]
-
-function CustomConnectButton() {
-  return (
-    <ConnectButton.Custom>
-      {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
-        const ready = mounted
-        if (!ready) return null
-
-        if (!account) {
-          return (
-            <Button size="sm" onClick={openConnectModal}>
-              Connect Wallet
-            </Button>
-          )
-        }
-
-        if (chain?.unsupported) {
-          return (
-            <Button size="sm" variant="destructive" onClick={openChainModal}>
-              Wrong Network
-            </Button>
-          )
-        }
-
-        return (
-          <Button size="sm" variant="outline" onClick={openAccountModal}>
-            {account.displayName}
-          </Button>
-        )
-      }}
-    </ConnectButton.Custom>
-  )
-}
 
 export function NavBar() {
   const { pathname } = useLocation()
