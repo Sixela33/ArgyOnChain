@@ -4,7 +4,7 @@ import { avalancheFuji } from 'wagmi/chains'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 
 const config = getDefaultConfig({
-  appName: 'ArgyOnChain',
+  appName: 'Ramelax',
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ?? 'YOUR_PROJECT_ID',
   chains: [avalancheFuji],
 })

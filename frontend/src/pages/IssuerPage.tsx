@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount, useWriteContract, usePublicClient, useReadContract } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
-import { formatUnits, parseAbiItem } from 'viem'
+import { formatUnits, parseAbiItem, decodeEventLog } from 'viem'
 import { ArrowRight } from 'lucide-react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Button } from '@/components/ui/button'
-import { TOKEN_FACTORY_ADDRESS, TokenFactoryABI, TokenABI, FROM_BLOCK } from '@/lib/contracts'
+import { TOKEN_FACTORY_ADDRESS, TokenFactoryABI, TokenABI, IDENTITY_FACTORY_ADDRESS, FROM_BLOCK } from '@/lib/contracts'
+import { verifyToken } from '@/lib/verifyToken'
 
 const TOKEN_CREATED_EVENT = parseAbiItem(
   'event TokenCreated(address indexed token, address indexed defaultAdmin, string name, string symbol, uint256[] requiredClaims, uint256 initialSupply)',
@@ -73,28 +74,88 @@ function IssuerTokenCard({ token }: { token: TokenInfo }) {
 
 function DeployTokenForm({ onDeployed }: { onDeployed: () => void }) {
   const { address } = useAccount()
+  const publicClient = usePublicClient()
   const [name, setName] = useState('')
   const [symbol, setSymbol] = useState('')
-  const [isPending, setIsPending] = useState(false)
+  const [claimsInput, setClaimsInput] = useState('')
+  const [status, setStatus] = useState<'idle' | 'deploying' | 'verifying' | 'done' | 'error'>('idle')
   const { writeContractAsync } = useWriteContract()
 
+  const parsedClaims: bigint[] = claimsInput
+    .split(',')
+    .map(s => s.trim())
+    .filter(s => s !== '' && /^\d+$/.test(s))
+    .map(s => BigInt(s))
+
   const handleDeploy = async () => {
-    if (!name || !symbol || !address) return
-    setIsPending(true)
+    if (!name || !symbol || !address || !publicClient) return
+    setStatus('deploying')
     try {
-      await writeContractAsync({
+      const hash = await writeContractAsync({
         address: TOKEN_FACTORY_ADDRESS,
         abi: TokenFactoryABI,
         functionName: 'deployToken',
-        args: [name, symbol, address, address, []],
+        args: [name, symbol, address, address, parsedClaims],
       })
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
+
+      // Extract new token address from TokenCreated event log
+      let newTokenAddress: `0x${string}` | undefined
+      for (const log of receipt.logs) {
+        try {
+          const decoded = decodeEventLog({ abi: TokenFactoryABI, ...log })
+          if (decoded.eventName === 'TokenCreated') {
+            newTokenAddress = (decoded.args as { token: `0x${string}` }).token
+            break
+          }
+        } catch { /* skip unrelated logs */ }
+      }
+
+      const deployedName = name
+      const deployedSymbol = symbol
+      const deployedClaims = parsedClaims
       setName('')
       setSymbol('')
+      setClaimsInput('')
       onDeployed()
-    } finally {
-      setIsPending(false)
+
+      // Fire-and-forget verification
+      if (newTokenAddress) {
+        setStatus('verifying')
+        verifyToken({
+          address: newTokenAddress,
+          name: deployedName,
+          symbol: deployedSymbol,
+          defaultAdmin: TOKEN_FACTORY_ADDRESS,
+          enforcer: address,
+          identityFactory: IDENTITY_FACTORY_ADDRESS,
+          requiredClaims: deployedClaims,
+        })
+          .then(result => {
+            console.log('Verification submitted:', result)
+            setStatus('done')
+          })
+          .catch(err => {
+            console.warn('Verification failed:', err)
+            setStatus('done')
+          })
+      } else {
+        setStatus('done')
+      }
+    } catch (err) {
+      console.error(err)
+      setStatus('error')
     }
   }
+
+  const statusMsg = {
+    idle: null,
+    deploying: 'Deploying…',
+    verifying: 'Submitting to Snowtrace for verification…',
+    done: 'Deployed and verification submitted.',
+    error: 'Something went wrong.',
+  }[status]
 
   return (
     <div className="border rounded-lg p-5 flex flex-col gap-4">
@@ -113,10 +174,23 @@ function DeployTokenForm({ onDeployed }: { onDeployed: () => void }) {
           onChange={(e) => setSymbol(e.target.value.toUpperCase())}
           maxLength={8}
         />
-        <Button onClick={handleDeploy} disabled={!name || !symbol || isPending}>
-          {isPending ? 'Deploying…' : 'Deploy'}
+      </div>
+      <div className="flex gap-3 items-center">
+        <input
+          className="flex-1 border rounded-md px-3 py-1.5 text-sm bg-background"
+          placeholder="Required claim IDs (e.g. 1,2)"
+          value={claimsInput}
+          onChange={(e) => setClaimsInput(e.target.value)}
+        />
+        <Button onClick={handleDeploy} disabled={!name || !symbol || status === 'deploying' || status === 'verifying'}>
+          {status === 'deploying' ? 'Deploying…' : status === 'verifying' ? 'Verifying…' : 'Deploy'}
         </Button>
       </div>
+      {statusMsg && (
+        <p className={`text-xs ${status === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}>
+          {statusMsg}
+        </p>
+      )}
     </div>
   )
 }

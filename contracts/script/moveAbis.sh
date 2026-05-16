@@ -13,5 +13,8 @@ mkdir -p $frontend_dir
 cp ../out/TokenFactory.sol/TokenFactory.json $frontend_dir/TokenFactory.json
 cp ../out/Token.sol/Token.json $frontend_dir/Token.json
 cp ../out/mocKUSDC.sol/USDC.json $frontend_dir/USDC.json
+cp ../out/ClaimIssuerManager.sol/ClaimIssuerManager.json $frontend_dir/ClaimIssuerManager.json
 
 echo "All contract JSON files moved successfully to the frontend directory!"
+
+bash extractVerificationData.sh

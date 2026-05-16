@@ -18,7 +18,7 @@ export function NavBar() {
     <nav className="border-b">
       <div className="px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <span className="font-semibold text-base tracking-tight">ArgyOnChain</span>
+          <span className="font-semibold text-base tracking-tight">Ramelax</span>
 
           {/* Desktop links */}
           <div className="hidden md:flex items-center gap-1">
