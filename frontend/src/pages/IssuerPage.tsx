@@ -4,7 +4,6 @@ import { useAccount, useWriteContract, usePublicClient, useReadContract } from '
 import { useQuery } from '@tanstack/react-query'
 import { formatUnits, parseAbiItem, decodeEventLog } from 'viem'
 import { ArrowRight } from 'lucide-react'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Button } from '@/components/ui/button'
 import { TOKEN_FACTORY_ADDRESS, TokenFactoryABI, TokenABI, IDENTITY_FACTORY_ADDRESS, FROM_BLOCK } from '@/lib/contracts'
 import { verifyToken } from '@/lib/verifyToken'
@@ -106,7 +105,7 @@ function DeployTokenForm({ onDeployed }: { onDeployed: () => void }) {
         try {
           const decoded = decodeEventLog({ abi: TokenFactoryABI, ...log })
           if (decoded.eventName === 'TokenCreated') {
-            newTokenAddress = (decoded.args as { token: `0x${string}` }).token
+            newTokenAddress = (decoded.args as unknown as { token: `0x${string}` }).token
             break
           }
         } catch { /* skip unrelated logs */ }

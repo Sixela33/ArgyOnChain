@@ -220,14 +220,14 @@ export function TokenManagePage() {
         {/* Forced transfer */}
         {perms?.isEnforcer && (
           <Section title="Forced transfer">
-            <ThreeAddressForm label="Transfer" onSubmit={async (from, to, amt) => write('forcedTransfer', [from, to, parseUnits(amt, 18)])} />
+            <ThreeAddressForm label="Transfer" onSubmit={async (from, to, amt) => { await write('forcedTransfer', [from, to, parseUnits(amt, 18)]) }} />
           </Section>
         )}
 
         {/* Freeze */}
         {perms?.isFreezer && (
           <Section title="Freeze tokens">
-            <AddressAmountForm label="Freeze" onSubmit={async (user, amt) => write('setFrozenTokens', [user, parseUnits(amt, 18)])} />
+            <AddressAmountForm label="Freeze" onSubmit={async (user, amt) => { await write('setFrozenTokens', [user, parseUnits(amt, 18)]) }} />
           </Section>
         )}
 

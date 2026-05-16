@@ -2,7 +2,7 @@ import { useAccount, useWriteContract, usePublicClient, useReadContract } from '
 import { useQuery } from '@tanstack/react-query'
 import { formatUnits, parseUnits, parseAbiItem } from 'viem'
 import { Button } from '@/components/ui/button'
-import { TOKEN_FACTORY_ADDRESS, USDC_ADDRESS, TokenFactoryABI, TokenABI, USDCABI, FROM_BLOCK } from '@/lib/contracts'
+import { TOKEN_FACTORY_ADDRESS, USDC_ADDRESS, TokenABI, USDCABI, FROM_BLOCK } from '@/lib/contracts'
 import CustomConnectButton from '@/components/CustomConnectButton'
 
 const TOKEN_CREATED_EVENT = parseAbiItem(

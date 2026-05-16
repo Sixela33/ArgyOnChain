@@ -114,7 +114,7 @@ function useActiveClaimIssuers() {
 
 // ─── Factory Issuers Section ──────────────────────────────────────────────────
 
-function FactoryIssuersSection({ wallet }: { wallet: `0x${string}` }) {
+function FactoryIssuersSection({ wallet: _wallet }: { wallet: `0x${string}` }) {
   const { writeContractAsync } = useWriteContract()
   const { data: factoryAdminRole } = useFactoryAdminRole()
   const { data: issuers = [], refetch } = useActiveFactoryIssuers(factoryAdminRole)
