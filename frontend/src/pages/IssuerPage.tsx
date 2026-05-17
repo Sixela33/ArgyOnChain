@@ -6,6 +6,7 @@ import { formatUnits, parseAbiItem, decodeEventLog } from 'viem'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { TOKEN_FACTORY_ADDRESS, TokenFactoryABI, TokenABI, IDENTITY_FACTORY_ADDRESS, FROM_BLOCK } from '@/lib/contracts'
+import { loadIndex, saveIndex } from '@/lib/indexer'
 import { verifyToken } from '@/lib/verifyToken'
 
 const TOKEN_CREATED_EVENT = parseAbiItem(
@@ -18,18 +19,30 @@ function useIssuedTokens(issuer: `0x${string}` | undefined) {
   const client = usePublicClient()
   return useQuery({
     queryKey: ['issued-tokens', issuer],
+    staleTime: 20_000,
     queryFn: async () => {
+      const storageKey = `issued-tokens-${issuer}`
+      const stored = loadIndex<TokenInfo>(storageKey, FROM_BLOCK)
+      const fromBlock = BigInt(stored.lastBlock) + 1n
+      const latestBlock = await client!.getBlockNumber()
+
+      if (fromBlock > latestBlock) return stored.items
+
       const logs = await client!.getLogs({
         address: TOKEN_FACTORY_ADDRESS,
         event: TOKEN_CREATED_EVENT,
         args: { defaultAdmin: issuer },
-        fromBlock: FROM_BLOCK,
+        fromBlock,
+        toBlock: latestBlock,
       })
-      return logs.map(log => ({
+      const newItems = logs.map(log => ({
         address: log.args.token  as `0x${string}`,
         name:    log.args.name   as string,
         symbol:  log.args.symbol as string,
       }))
+      const merged = [...stored.items, ...newItems]
+      saveIndex(storageKey, merged, latestBlock)
+      return merged
     },
     enabled: !!client && !!issuer,
   })
@@ -100,7 +113,7 @@ function DeployTokenForm({ onDeployed }: { onDeployed: () => void }) {
         try {
           const decoded = decodeEventLog({ abi: TokenFactoryABI, ...log })
           if (decoded.eventName === 'TokenCreated') {
-            newTokenAddress = (decoded.args as { token: `0x${string}` }).token
+            newTokenAddress = (decoded.args as unknown as { token: `0x${string}` }).token
             break
           }
         } catch { /* skip unrelated logs */ }

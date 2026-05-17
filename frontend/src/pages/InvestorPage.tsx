@@ -4,7 +4,8 @@ import { useAccount, useWriteContract, usePublicClient, useReadContract } from '
 import { useQuery } from '@tanstack/react-query'
 import { formatUnits, parseUnits, parseAbiItem } from 'viem'
 import { Button } from '@/components/ui/button'
-import { TOKEN_FACTORY_ADDRESS, USDC_ADDRESS, TokenFactoryABI, TokenABI, USDCABI, FROM_BLOCK } from '@/lib/contracts'
+import { TOKEN_FACTORY_ADDRESS, USDC_ADDRESS, TokenABI, USDCABI, FROM_BLOCK } from '@/lib/contracts'
+import { loadIndex, saveIndex } from '@/lib/indexer'
 import CustomConnectButton from '@/components/CustomConnectButton'
 
 // ── Token display metadata keyed by symbol ────────────────────────────────────
@@ -32,16 +33,30 @@ function useAllTokens() {
   const client = usePublicClient()
   return useQuery({
     queryKey: ['all-tokens'],
+    staleTime: 20_000,
     queryFn: async () => {
-      const logs = await client!.getLogs({ address: TOKEN_FACTORY_ADDRESS, event: TOKEN_CREATED_EVENT, fromBlock: FROM_BLOCK })
-      return logs.map(log => ({
+      const stored = loadIndex<TokenInfo>('all-tokens', FROM_BLOCK)
+      const fromBlock = BigInt(stored.lastBlock) + 1n
+      const latestBlock = await client!.getBlockNumber()
+
+      if (fromBlock > latestBlock) return stored.items
+
+      const logs = await client!.getLogs({
+        address: TOKEN_FACTORY_ADDRESS,
+        event: TOKEN_CREATED_EVENT,
+        fromBlock,
+        toBlock: latestBlock,
+      })
+      const newItems = logs.map(log => ({
         address: log.args.token  as `0x${string}`,
         name:    log.args.name   as string,
         symbol:  log.args.symbol as string,
       }))
+      const merged = [...stored.items, ...newItems]
+      saveIndex('all-tokens', merged, latestBlock)
+      return merged
     },
     enabled: !!client,
-    refetchInterval: 15_000,
   })
 }
 

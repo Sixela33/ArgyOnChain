@@ -7,6 +7,7 @@ import {
   TOKEN_FACTORY_ADDRESS, TokenFactoryABI, FROM_BLOCK,
   CLAIM_ISSUER_MANAGER_ADDRESS, ClaimIssuerManagerABI,
 } from '@/lib/contracts'
+import { loadIndex, saveIndex } from '@/lib/indexer'
 
 const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`
 const CLAIM_ISSUER_ADMIN_ROLE = keccak256(toBytes('CLAIM_ISSUER_ADMIN')) as `0x${string}`
@@ -42,34 +43,35 @@ function useActiveFactoryIssuers(factoryAdminRole: `0x${string}` | undefined) {
   const client = usePublicClient()
   return useQuery({
     queryKey: ['active-factory-issuers', factoryAdminRole],
+    staleTime: 30_000,
     queryFn: async () => {
+      const stored = loadIndex<string>('factory-issuers', FROM_BLOCK)
+      const fromBlock = BigInt(stored.lastBlock) + 1n
+      const latestBlock = await client!.getBlockNumber()
+
+      if (fromBlock > latestBlock) return stored.items
+
       const [granted, revoked] = await Promise.all([
-        client!.getLogs({
-          address: TOKEN_FACTORY_ADDRESS,
-          event: ROLE_GRANTED_EVENT,
-          args: { role: factoryAdminRole },
-          fromBlock: FROM_BLOCK,
-        }),
-        client!.getLogs({
-          address: TOKEN_FACTORY_ADDRESS,
-          event: ROLE_REVOKED_EVENT,
-          args: { role: factoryAdminRole },
-          fromBlock: FROM_BLOCK,
-        }),
+        client!.getLogs({ address: TOKEN_FACTORY_ADDRESS, event: ROLE_GRANTED_EVENT, args: { role: factoryAdminRole }, fromBlock, toBlock: latestBlock }),
+        client!.getLogs({ address: TOKEN_FACTORY_ADDRESS, event: ROLE_REVOKED_EVENT, args: { role: factoryAdminRole }, fromBlock, toBlock: latestBlock }),
       ])
 
-      const revokedSet = new Set(revoked.map(l => (l.args.account as string).toLowerCase()))
+      const newRevoked = new Set(revoked.map(l => (l.args.account as string).toLowerCase()))
+      const newGranted = granted.map(l => l.args.account as string)
+
+      // Apply delta: add new grants, remove newly revoked, deduplicate
+      const combined = [...stored.items, ...newGranted]
       const seen = new Set<string>()
       const active: string[] = []
-
-      for (const log of granted) {
-        const account = (log.args.account as string).toLowerCase()
-        if (!revokedSet.has(account) && !seen.has(account)) {
-          seen.add(account)
-          active.push(log.args.account as string)
+      for (const addr of combined) {
+        const lower = addr.toLowerCase()
+        if (!newRevoked.has(lower) && !seen.has(lower)) {
+          seen.add(lower)
+          active.push(addr)
         }
       }
 
+      saveIndex('factory-issuers', active, latestBlock)
       return active
     },
     enabled: !!client && !!factoryAdminRole,
@@ -80,32 +82,34 @@ function useActiveClaimIssuers() {
   const client = usePublicClient()
   return useQuery({
     queryKey: ['active-claim-issuers'],
+    staleTime: 30_000,
     queryFn: async () => {
+      const stored = loadIndex<string>('claim-issuers', FROM_BLOCK)
+      const fromBlock = BigInt(stored.lastBlock) + 1n
+      const latestBlock = await client!.getBlockNumber()
+
+      if (fromBlock > latestBlock) return stored.items
+
       const [added, removed] = await Promise.all([
-        client!.getLogs({
-          address: CLAIM_ISSUER_MANAGER_ADDRESS,
-          event: CLAIM_ISSUER_ADDED_EVENT,
-          fromBlock: FROM_BLOCK,
-        }),
-        client!.getLogs({
-          address: CLAIM_ISSUER_MANAGER_ADDRESS,
-          event: CLAIM_ISSUER_REMOVED_EVENT,
-          fromBlock: FROM_BLOCK,
-        }),
+        client!.getLogs({ address: CLAIM_ISSUER_MANAGER_ADDRESS, event: CLAIM_ISSUER_ADDED_EVENT, fromBlock, toBlock: latestBlock }),
+        client!.getLogs({ address: CLAIM_ISSUER_MANAGER_ADDRESS, event: CLAIM_ISSUER_REMOVED_EVENT, fromBlock, toBlock: latestBlock }),
       ])
 
-      const removedSet = new Set(removed.map(l => (l.args.issuer as string).toLowerCase()))
+      const newRemoved = new Set(removed.map(l => (l.args.issuer as string).toLowerCase()))
+      const newAdded = added.map(l => l.args.issuer as string)
+
+      const combined = [...stored.items, ...newAdded]
       const seen = new Set<string>()
       const active: string[] = []
-
-      for (const log of added) {
-        const issuer = (log.args.issuer as string).toLowerCase()
-        if (!removedSet.has(issuer) && !seen.has(issuer)) {
-          seen.add(issuer)
-          active.push(log.args.issuer as string)
+      for (const addr of combined) {
+        const lower = addr.toLowerCase()
+        if (!newRemoved.has(lower) && !seen.has(lower)) {
+          seen.add(lower)
+          active.push(addr)
         }
       }
 
+      saveIndex('claim-issuers', active, latestBlock)
       return active
     },
     enabled: !!client,

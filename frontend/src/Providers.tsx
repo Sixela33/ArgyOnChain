@@ -9,7 +9,15 @@ const config = getDefaultConfig({
   chains: [avalancheFuji],
 })
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 10_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
