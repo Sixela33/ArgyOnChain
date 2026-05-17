@@ -62,10 +62,13 @@ function useTokenPermissions(tokenAddress: `0x${string}`, wallet: `0x${string}` 
   })
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
-    <div className="border rounded-lg p-5 flex flex-col gap-3">
-      <h3 className="font-medium text-sm">{title}</h3>
+    <div className="border rounded-xl p-5 flex flex-col gap-3" style={{ borderColor: 'rgba(0,255,110,0.10)' }}>
+      <div>
+        <h3 className="font-medium text-sm">{title}</h3>
+        {desc && <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>}
+      </div>
       {children}
     </div>
   )
@@ -195,23 +198,31 @@ export function TokenManagePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Mint */}
         {perms?.isMinter && (
-          <Section title="Mint tokens">
+          <Section title="Mint tokens" desc="Issue new tokens to a wallet that has an identity and required claims.">
             <AddressAmountForm label="Mint" onSubmit={async (to, amt) => { await write('mint', [to, parseUnits(amt, 18)]); refetchSupply() }} />
           </Section>
         )}
 
         {/* Burn */}
         {perms?.isBurner && (
-          <Section title="Burn from address">
+          <Section title="Burn from address" desc="Destroy tokens from a wallet. Requires prior approval from that address.">
             <AddressAmountForm label="Burn" onSubmit={async (from, amt) => { await write('burnFrom', [from, parseUnits(amt, 18)]); refetchSupply() }} />
           </Section>
         )}
 
         {/* Pause */}
         {perms?.isPauser && (
-          <Section title="Pause / Unpause">
-            <p className="text-sm text-muted-foreground">Status: <span className="text-foreground">{isPaused ? 'Paused' : 'Active'}</span></p>
-            <Button size="sm" variant={isPaused ? 'default' : 'outline'} onClick={async () => { await write(isPaused ? 'unpause' : 'pause', []); refetchPaused() }}>
+          <Section title="Pause / Unpause" desc="Halt all transfers globally. Use in emergencies only.">
+            <p className="text-sm text-muted-foreground">Status: <span className="text-foreground font-medium">{isPaused ? 'Paused' : 'Active'}</span></p>
+            <Button
+              size="sm"
+              variant={isPaused ? 'default' : 'destructive'}
+              onClick={async () => {
+                if (!isPaused && !window.confirm('Pause all token transfers? This affects every holder immediately.')) return
+                await write(isPaused ? 'unpause' : 'pause', [])
+                refetchPaused()
+              }}
+            >
               {isPaused ? 'Unpause trading' : 'Pause trading'}
             </Button>
           </Section>
@@ -219,23 +230,23 @@ export function TokenManagePage() {
 
         {/* Forced transfer */}
         {perms?.isEnforcer && (
-          <Section title="Forced transfer">
+          <Section title="Forced transfer" desc="Move tokens between wallets regardless of restrictions. For regulatory compliance use.">
             <ThreeAddressForm label="Transfer" onSubmit={async (from, to, amt) => { await write('forcedTransfer', [from, to, parseUnits(amt, 18)]) }} />
           </Section>
         )}
 
         {/* Freeze */}
         {perms?.isFreezer && (
-          <Section title="Freeze tokens">
+          <Section title="Freeze tokens" desc="Lock a specific amount in a wallet. Frozen tokens cannot be transferred.">
             <AddressAmountForm label="Freeze" onSubmit={async (user, amt) => { await write('setFrozenTokens', [user, parseUnits(amt, 18)]) }} />
           </Section>
         )}
 
         {/* Required claims */}
         {perms?.isAdmin && (
-          <Section title="Required claims">
+          <Section title="Required claims" desc="Define which compliance claim IDs holders must have to send or receive tokens.">
             <p className="text-xs text-muted-foreground">
-              Current: {requiredClaims && (requiredClaims as bigint[]).length > 0 ? (requiredClaims as bigint[]).join(', ') : 'none'}
+              Current: <span className="font-mono text-foreground">{requiredClaims && (requiredClaims as bigint[]).length > 0 ? (requiredClaims as bigint[]).join(', ') : 'none'}</span>
             </p>
             <div className="flex gap-2">
               <input className="flex-1 border rounded-md px-3 py-1.5 text-sm bg-background" placeholder="1, 2, 3 (comma separated)" value={newClaims} onChange={e => setNewClaims(e.target.value)} />
@@ -246,9 +257,9 @@ export function TokenManagePage() {
 
         {/* Grant / Revoke role */}
         {perms?.isAdmin && (
-          <Section title="Grant / Revoke role">
+          <Section title="Grant / Revoke role" desc="Assign or remove operational permissions for a wallet on this token.">
             <div className="flex gap-2">
-              <select className="border rounded-md px-2 py-1.5 text-sm bg-background" value={selectedRole} onChange={e => setSelectedRole(e.target.value)}>
+              <select className="border rounded-md px-2 py-1.5 text-sm bg-background flex-1" value={selectedRole} onChange={e => setSelectedRole(e.target.value)}>
                 {Object.keys(ROLE_LABELS).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
               </select>
               <select className="border rounded-md px-2 py-1.5 text-sm bg-background" value={roleAction} onChange={e => setRoleAction(e.target.value as 'grant' | 'revoke')}>
